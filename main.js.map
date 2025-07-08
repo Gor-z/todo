@@ -1,0 +1,1 @@
+{"version":3,"file":"main.js","mappings":"mBAEAA,QAAQC,IAAI,U","sources":["webpack://webpack-practice/./src/index.js"],"sourcesContent":["import \"./styles.css\";\n\nconsole.log('testing');"],"names":["console","log"],"sourceRoot":""}

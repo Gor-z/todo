@@ -1,0 +1,1 @@
+{"version":3,"file":"main.7f1289909454e9334789.css","mappings":"AAAA,KACE,wBACF","sources":["webpack://webpack-practice/./src/styles.css"],"sourcesContent":["body {\n  background-color: #f1e3ff;\n}"],"names":[],"sourceRoot":""}
