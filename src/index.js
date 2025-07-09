@@ -1,3 +1,5 @@
 import "./styles.css";
+import { ProjectManager } from "./modules/ProjectManager";
 
-console.log('testing');
+ProjectManager.addProject('test')
+console.log(ProjectManager.getProjectList());
