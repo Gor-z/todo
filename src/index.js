@@ -1,5 +1,5 @@
 import "./styles.css";
-import { ProjectManager } from "./modules/ProjectManager";
+import { AppManager } from "./modules/AppManager";
 
-ProjectManager.addProject('test')
-console.log(ProjectManager.getProjectList());
+
+AppManager.initialize()
