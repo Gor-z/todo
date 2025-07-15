@@ -1,18 +1,23 @@
 import { TodoManager } from "./TodoManager";
 import { ProjectManager } from "./ProjectManager";
 import { UI } from "./UI";
+import { Storage } from "./Storage";
 const AppManager = (() => {
 
     const initialize = () => {
-        if (getProjectList().length === 0) {
-            ProjectManager.addProject('Default')
-            const defaultId = getProjectList()[0].getId();
+        const data = Storage.load();
+        if (data) {
+            ProjectManager.loadProjectsFromData(data, data.currentProjectId);
+        } else {
+            ProjectManager.addProject('Default');
+            const defaultId = ProjectManager.getProjectList()[0].getId();
             ProjectManager.setCurrentProject(defaultId);
         }
-        UI.renderProjects(getProjectList());
-        UI.highlightCurrentProject(getCurrent().getId());
-        UI.renderTodos(getTodos())
-    }
+
+        UI.renderProjects(ProjectManager.getProjectList());
+        UI.highlightCurrentProject(ProjectManager.getCurrentProject().getId());
+        UI.renderTodos(TodoManager.getTodos());
+    };
 
     const addProject = (name) => {
         ProjectManager.addProject(name);
@@ -22,16 +27,19 @@ const AppManager = (() => {
         UI.renderProjects(getProjectList())
         UI.highlightCurrentProject(getCurrent().getId());
         UI.renderTodos(getTodos())
+        Storage.save(getProjectList(), getCurrent().getId());
     }
 
     const deleteProject = (id) => {
         ProjectManager.deleteProject(id)
+        Storage.save(getProjectList(), getCurrent().getId());
     }
 
     const setCurrentProject = (id) => {
         ProjectManager.setCurrentProject(id)
         UI.highlightCurrentProject(id)
         UI.renderTodos(getTodos())
+        Storage.save(getProjectList(), getCurrent().getId());
     }
 
     const getCurrent = () => ProjectManager.getCurrentProject()

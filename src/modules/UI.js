@@ -1,5 +1,6 @@
 import { AppManager } from "./AppManager";
 import { TodoManager } from "./TodoManager";
+import { Storage } from './Storage';
 import dragula from 'dragula';
 import 'dragula/dist/dragula.css';
 
@@ -46,7 +47,6 @@ const UI = (() => {
         container.textContent = '';
     };
 
-
     const renderTodos = (todos) => {
         ['todo', 'doing', 'done'].forEach(status => {
             const column = document.querySelector(`[data-status="${status}"] .todo-list`);
@@ -66,16 +66,22 @@ const UI = (() => {
             card.classList.add(`priority-${todo.getPriority().toLowerCase()}`);
             card.append(todoTitle, todoDate);
 
+            card.addEventListener('click', () => {
+                renderTodoCard(todo);
+            });
+
             const column = document.querySelector(`[data-status="${todo.getStatus()}"] .todo-list`);
             if (column) column.appendChild(card);
         })
+
     }
 
     dragula(lists).on('drop', (el, target, source, sibling) => {
         const todoId = el.dataset.id;
         const newStatus = target.closest('[data-status]').dataset.status;
 
-        TodoManager.getTodo(todoId).setStatus(newStatus)
+        TodoManager.getTodo(todoId).setStatus(newStatus);
+        Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
     });
 
     const renderProjects = (projects) => {
@@ -118,11 +124,189 @@ const UI = (() => {
             AppManager.deleteProject(id);
             renderProjects(AppManager.getProjectList());
             highlightCurrentProject(AppManager.getCurrent()?.getId());
+            Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
         } else {
             AppManager.setCurrentProject(id);
             highlightCurrentProject(id);
+            Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
         }
     });
+
+    const renderTodoCard = (todo) => {
+        let viewModeOn = true;
+
+        const existingModal = document.getElementById('todo-card-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'todo-card-modal';
+        modal.classList.add('todo-card-modal');
+
+        const content = document.createElement('div');
+        content.classList.add('todo-card-content');
+
+        const title = document.createElement('h2');
+        const description = document.createElement('p');
+        const dueDate = document.createElement('p');
+        const priority = document.createElement('p');
+        const notesContainer = document.createElement('div');
+        notesContainer.classList.add('notes-container');
+        const checklist = document.createElement('ul');
+
+        const titleInput = document.createElement('input');
+        const descriptionInput = document.createElement('textarea');
+        const dueDateInput = document.createElement('input');
+        const priorityInput = document.createElement('select');
+
+        let currentNoteIndex = 0;
+
+        ['low', 'medium', 'high'].forEach(level => {
+            const option = document.createElement('option');
+            option.value = level;
+            option.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+            if (level === todo.getPriority()) option.selected = true;
+            priorityInput.appendChild(option);
+        });
+
+        dueDateInput.type = 'date';
+
+        const renderNotes = () => {
+            clearContainer(notesContainer);
+
+            const notes = todo.getNotes();
+            if (notes.length > 0) {
+                const noteDisplay = document.createElement('p');
+                noteDisplay.textContent = `Note: ${notes[currentNoteIndex]}`;
+                notesContainer.appendChild(noteDisplay);
+
+                if (notes.length > 1) {
+                    const navButtons = document.createElement('div');
+                    navButtons.classList.add('note-navigation-buttons');
+
+                    const prevNoteBtn = document.createElement('button');
+                    prevNoteBtn.textContent = '◀';
+                    prevNoteBtn.addEventListener('click', () => {
+                        currentNoteIndex = (currentNoteIndex - 1 + notes.length) % notes.length;
+                        renderNotes();
+                    });
+
+                    const nextNoteBtn = document.createElement('button');
+                    nextNoteBtn.textContent = '▶';
+                    nextNoteBtn.addEventListener('click', () => {
+                        currentNoteIndex = (currentNoteIndex + 1) % notes.length;
+                        renderNotes();
+                    });
+
+                    navButtons.append(prevNoteBtn, nextNoteBtn);
+                    notesContainer.appendChild(navButtons);
+                }
+            } else {
+                const noNotesMessage = document.createElement('p');
+                noNotesMessage.textContent = 'No notes for this todo.';
+                notesContainer.appendChild(noNotesMessage);
+            }
+        };
+
+        const renderViewMode = () => {
+            title.textContent = `Title: ${todo.getTitle()}`;
+            description.textContent = `Description: ${todo.getDescription()}`;
+            dueDate.textContent = `Due: ${todo.getDueDate()}`;
+            priority.textContent = `Priority: ${todo.getPriority()}`;
+
+            renderNotes();
+
+            checklist.innerHTML = '';
+            todo.getChecklist().forEach((item, index) => {
+                const li = document.createElement('li');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = item.status;
+
+                checkbox.addEventListener('change', () => {
+                    todo.toggleCheckListItem(index);
+                    renderViewMode();
+                    Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
+                });
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = item.text;
+
+                li.append(checkbox, textSpan);
+                checklist.appendChild(li);
+            });
+
+            content.replaceChildren(title, description, dueDate, priority, notesContainer, checklist, buttons);
+        };
+
+        const renderEditMode = () => {
+            titleInput.value = todo.getTitle();
+            descriptionInput.value = todo.getDescription();
+            dueDateInput.value = todo.getDueDate();
+
+            content.replaceChildren(
+                labelWrap('Title', titleInput),
+                labelWrap('Description', descriptionInput),
+                labelWrap('Due Date', dueDateInput),
+                labelWrap('Priority', priorityInput),
+                buttons
+            );
+        };
+
+        const labelWrap = (labelText, inputEl) => {
+            const label = document.createElement('label');
+            label.textContent = labelText;
+            const div = document.createElement('div');
+            div.append(label, inputEl);
+            return div;
+        };
+
+        const buttons = document.createElement('div');
+        buttons.id = 'todo-card-buttons';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.id = 'todo-card-btn-edit';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.id = 'todo-card-btn-save';
+        saveBtn.classList.add('hidden');
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.id = 'todo-card-btn-close';
+
+        editBtn.addEventListener('click', () => {
+            viewModeOn = false;
+            editBtn.classList.add('hidden');
+            saveBtn.classList.remove('hidden');
+            renderEditMode();
+        });
+
+        saveBtn.addEventListener('click', () => {
+            todo.setTitle(titleInput.value.trim());
+            todo.setDescription(descriptionInput.value.trim());
+            todo.setDueDate(dueDateInput.value);
+            todo.setPriority(priorityInput.value);
+
+            viewModeOn = true;
+            editBtn.classList.remove('hidden');
+            saveBtn.classList.add('hidden');
+            renderViewMode();
+            renderTodos(AppManager.getTodos());
+            Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
+        });
+
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+
+        buttons.append(editBtn, saveBtn, closeBtn);
+        renderViewMode();
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+    };
 
     btnAddProject.addEventListener('click', () => openModal(projectModal));
     btnAddTodo.addEventListener('click', () => openModal(todoModal));
@@ -134,6 +318,7 @@ const UI = (() => {
             AppManager.addProject(projectName);
             renderProjects(AppManager.getProjectList());
             highlightCurrentProject(AppManager.getCurrent().getId());
+            Storage.save(AppManager.getProjectList(), AppManager.getCurrent().getId());
             closeModal(projectModal);
         }
     });
@@ -148,19 +333,20 @@ const UI = (() => {
 
         const notes = Array.from(document.querySelectorAll('.todo-note-input'))
             .map(input => input.value.trim())
-            .filter(value => value !== "")
+            .filter(value => value !== "");
 
         const checklist = Array.from(document.querySelectorAll('.checklist-item'))
             .map(item => {
                 const text = item.querySelector('.checklist-text')?.value.trim();
                 return text ? { text, status: false } : null;
             })
-            .filter(value => value !== null)
+            .filter(value => value !== null);
 
         if (!title) return;
 
         TodoManager.addTodo(title, description, dueDate, priority, notes, checklist);
-        renderTodos(AppManager.getTodos())
+        renderTodos(AppManager.getTodos());
+        Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
         closeModal(todoModal);
     });
 

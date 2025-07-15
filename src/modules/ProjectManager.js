@@ -1,14 +1,9 @@
 import { Project } from "./Project";
+import { Todo } from "./Todo";
 
 const ProjectManager = (() => {
     let _projectList = [];
     let _currentProject = null;
-
-    if (_projectList.length === 0) {
-        const defaultProject = Project("Default");
-        _projectList.push(defaultProject);
-        _currentProject = defaultProject;
-    }
 
     const addProject = (name) => {
         const newProject = Project(name);
@@ -46,6 +41,34 @@ const ProjectManager = (() => {
         }
     };
 
+    const loadProjectsFromData = (data, currentId) => {
+        _projectList = data.projects.map(projData => {
+            const project = Project(projData.name);
+            project.getList().splice(0, project.getList().length);
+
+            projData.todos.forEach(todoData => {
+                const todo = Todo(
+                    todoData.title,
+                    todoData.description,
+                    todoData.dueDate,
+                    todoData.priority,
+                    todoData.notes,
+                    todoData.checklist
+                );
+
+                todo.getId = () => todoData.id;
+                todo.setStatus(todoData.status);
+                project.addTodo(todo);
+            });
+
+
+            project.getId = () => projData.id;
+            return project;
+        });
+
+        _currentProject = _projectList.find(p => p.getId() === currentId) || _projectList[0] || null;
+    };
+
     return {
         addProject,
         deleteProject,
@@ -53,7 +76,8 @@ const ProjectManager = (() => {
         setCurrentProject,
         getCurrentProject,
         getProjectList,
-        changeProjectName
+        changeProjectName,
+        loadProjectsFromData
     };
 })();
 

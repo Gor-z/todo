@@ -1,5 +1,7 @@
 import { ProjectManager } from './ProjectManager';
 import { Todo } from './Todo';
+import { Storage } from './Storage';
+import { AppManager } from './AppManager';
 
 const TodoManager = (() => {
     const _getCurrentProject = () => ProjectManager.getCurrentProject();
@@ -24,6 +26,7 @@ const TodoManager = (() => {
             initialChecklist
         );
         _currentProject.addTodo(_newTodo);
+        Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
     };
 
     const getTodos = () => {
@@ -40,12 +43,14 @@ const TodoManager = (() => {
         const _currentProject = _getCurrentProject();
         if (!_currentProject) return;
         _currentProject.deleteTodo(id);
+        Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
     };
 
     const clearTodos = () => {
         const _currentProject = _getCurrentProject();
         if (!_currentProject) return;
         _currentProject.getList().splice(0);
+        Storage.save(AppManager.getProjectList(), AppManager.getCurrent()?.getId());
     };
 
     return {
